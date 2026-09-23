@@ -25,10 +25,16 @@ The map is intentionally the main screen element. Each route result also include
 
 ```bash
 source .venv/bin/activate              # Windows: .venv\\Scripts\\activate
-python web_app.py
+python -m src.local_server
 ```
 
 Then open `http://127.0.0.1:8000` in a browser. Stop the server with `Ctrl+C`.
+
+## Deploy on Vercel
+
+This project is Vercel-ready: `index.html` is the static front end and the `api/` folder contains the required Python serverless handlers. On Vercel, do not use a build command. Import the GitHub repository and deploy it with the default settings.
+
+The simulated traffic update is deliberately stored in the browser request rather than server memory. This is important because Vercel functions are stateless and may be restarted between calls.
 
 ## Run the console demo
 
@@ -36,7 +42,7 @@ Then open `http://127.0.0.1:8000` in a browser. Stop the server with `Ctrl+C`.
 python3 -m venv .venv
 source .venv/bin/activate              # Windows: .venv\\Scripts\\activate
 pip install -r requirements.txt
-python app.py
+python -m src.routing_engine
 ```
 
 The run prints route comparisons and writes two route-map images to `outputs/`.
@@ -54,7 +60,7 @@ Traffic multipliers are low = 1.0, medium = 1.45, and high = 2.20. Blocked roads
 
 ## How to demonstrate Module 3
 
-`app.py` begins an ambulance journey from `Hospital` to `Accident Site`. It then changes the network: one road gets heavy traffic and another becomes blocked. The ambulance is assumed to be at `North Junction`, and A* recalculates a new safe route from there.
+`src/routing_engine.py` begins an ambulance journey from `Hospital` to `Accident Site`. It then changes the network: one road gets heavy traffic and another becomes blocked. The ambulance is assumed to be at `North Junction`, and A* recalculates a new safe route from there.
 
 You can edit the `apply_dynamic_event()` function or call `network.update_road(...)` to test other events.
 

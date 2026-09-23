@@ -1,6 +1,6 @@
 """Local web interface for the AI Emergency Traffic Routing System.
 
-Run: .venv/bin/python web_app.py
+Run: .venv/bin/python -m src.local_server
 Open: http://127.0.0.1:8000
 """
 
@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-from app import EmergencyRoadNetwork, apply_dynamic_event, build_demo_city
+from src.routing_engine import EmergencyRoadNetwork, apply_dynamic_event, build_demo_city
 
 PROJECT_DIR = Path(__file__).resolve().parent
 city: EmergencyRoadNetwork = build_demo_city()

@@ -1,6 +1,6 @@
 """AI-Based Emergency Traffic Routing System.
 
-Run with: python app.py
+Run with: python -m src.routing_engine
 The program uses a small simulated city. Change road states in
 ``apply_dynamic_event`` to demonstrate live re-routing.
 """
