@@ -21,6 +21,8 @@ A Python microproject for demonstrating an ambulance as a **utility-based intell
 
 The project now includes a basic clickable browser interface. Select the ambulance location, emergency destination, and algorithm, then click **Calculate Route**. Use **Simulate Live Road Update** to make one road heavy and another blocked; calculate again to show re-routing.
 
+The map is intentionally the main screen element. Each route result also includes a concise **Why this route?** explanation that reports the search approach, traffic conditions on the selected roads, utility cost, and any blocked roads avoided.
+
 ```bash
 source .venv/bin/activate              # Windows: .venv\\Scripts\\activate
 python web_app.py

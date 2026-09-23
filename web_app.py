@@ -27,13 +27,47 @@ def route_data(start: str, destination: str, algorithm: str) -> dict:
     }
     name, search = choices[algorithm]
     result = city.run_algorithm(name, search, start, destination)
+    explanation = explain_route(result.path, algorithm)
     return {
         "algorithm": result.algorithm,
         "path": result.path,
         "distance": None if result.path is None else round(result.distance_km, 1),
         "minutes": None if result.path is None else round(result.travel_minutes, 1),
         "utility": None if result.path is None else round(result.utility_cost, 2),
+        "explanation": explanation,
     }
+
+
+def explain_route(path: list[str] | None, algorithm: str) -> list[str]:
+    """Produce a short, explainable-AI justification from the actual road data."""
+    if not path:
+        return ["No route was selected because there is no open path between these locations."]
+
+    road_details = [city.graph[a][b] for a, b in zip(path, path[1:])]
+    traffic_counts = {level: sum(road["traffic"] == level for road in road_details) for level in ("low", "medium", "high")}
+    route_cost = sum(city.edge_cost(a, b) for a, b in zip(path, path[1:]))
+    blocked_count = sum(data["blocked"] for _, _, data in city.graph.edges(data=True))
+    messages = []
+
+    if algorithm == "astar":
+        messages.append(
+            "A* selected the route with the lowest traffic-aware utility cost. It combines the cost already travelled "
+            "with an estimate of the remaining distance to the destination."
+        )
+    elif algorithm == "bfs":
+        messages.append("BFS selected this route because it uses the fewest road segments. It does not optimize traffic delay or utility cost.")
+    else:
+        messages.append("Greedy Best-First Search selected locations that appeared closest to the destination. It does not fully account for the cost already travelled.")
+
+    traffic_summary = ", ".join(f"{count} {level}-traffic road{'s' if count != 1 else ''}" for level, count in traffic_counts.items() if count)
+    messages.append(f"The chosen path contains {traffic_summary} and has a total utility cost of {route_cost:.2f}.")
+    if blocked_count:
+        messages.append(f"{blocked_count} blocked road{' was' if blocked_count == 1 else 's were'} excluded automatically, so the ambulance is not routed through an unsafe road.")
+    if traffic_counts["high"] == 0:
+        messages.append("The route avoids high-traffic roads, helping reduce estimated emergency response time.")
+    else:
+        messages.append("A high-traffic road remains only because it is part of the best available path under the current road conditions.")
+    return messages
 
 
 def network_data() -> dict:

@@ -7,22 +7,24 @@
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; background: #f4f7fb; color: #172b4d; font-family: Arial, sans-serif; }
-    header { background: linear-gradient(120deg, #12355b, #087e8b); color: #fff; padding: 22px max(6vw, 28px); }
+    header { background: #12355b; color: #fff; padding: 20px max(6vw, 28px); }
     h1 { margin: 0; font-size: clamp(1.35rem, 3vw, 2rem); } header p { margin: 6px 0 0; color: #d9f3f4; }
-    main { display: grid; grid-template-columns: 290px 1fr; gap: 20px; max-width: 1320px; margin: 0 auto; padding: 22px; }
+    main { display: grid; grid-template-columns: 260px 1fr; gap: 20px; max-width: 1400px; margin: 0 auto; padding: 22px; }
     .card { background: #fff; border: 1px solid #dbe4ee; border-radius: 12px; box-shadow: 0 3px 12px #102a4310; padding: 18px; }
     label { display: block; font-weight: bold; font-size: .9rem; margin: 16px 0 6px; } label:first-child { margin-top: 0; }
     select, button { width: 100%; border-radius: 7px; padding: 10px; font-size: .95rem; }
     select { border: 1px solid #b8c7d9; background: #fff; } button { border: 0; font-weight: bold; color: #fff; cursor: pointer; margin-top: 10px; }
     button:hover { filter: brightness(.93); } #calculate { background: #087e8b; margin-top: 22px; } #update { background: #d86c1a; } #reset { color: #12355b; background: #d9e2ec; }
-    .map-card { min-width: 0; } #map { width: 100%; height: 470px; display: block; background: #fbfdff; border-radius: 8px; }
+    .map-card { min-width: 0; } #map { width: 100%; height: 600px; display: block; background: #fbfdff; border-radius: 8px; }
     .result { margin-top: 16px; line-height: 1.55; } .result strong { color: #075e67; } .route { font-weight: bold; color: #0066cc; }
     .legend { color: #52606d; font-size: .85rem; margin: 8px 0 0; } .note { font-size: .86rem; color: #52606d; line-height: 1.45; }
-    @media (max-width: 800px) { main { grid-template-columns: 1fr; } #map { height: 390px; } }
+    .explanation { margin-top: 14px; background: #f8fbff; border-left: 4px solid #087e8b; padding: 12px 15px; font-size: .92rem; line-height: 1.45; }
+    .explanation h3 { margin: 0 0 7px; font-size: 1rem; color: #075e67; } .explanation ul { margin: 0; padding-left: 19px; }
+    @media (max-width: 800px) { main { grid-template-columns: 1fr; } #map { height: 440px; } }
   </style>
 </head>
 <body>
-  <header><h1>🚑 AI-Based Emergency Traffic Routing System</h1><p>Traffic-aware route selection for emergency response</p></header>
+  <header><h1>AI-Based Emergency Traffic Routing System</h1><p>Traffic-aware route selection for emergency response</p></header>
   <main>
     <section class="card">
       <label for="start">Ambulance location</label><select id="start"></select>
@@ -36,10 +38,11 @@
       <svg id="map" viewBox="0 0 820 470" aria-label="City road network"></svg>
       <p class="legend">Blue: selected route &nbsp; • &nbsp; Grey: open road &nbsp; • &nbsp; Red dashed: blocked road</p>
       <div class="card result" id="result">Ready. Select locations and click <strong>Calculate Route</strong>.</div>
+      <div class="explanation" id="explanation"><h3>Why this route?</h3><span>Calculate a route to see the AI decision explanation.</span></div>
     </section>
   </main>
   <script>
-    const map = document.querySelector('#map'), resultBox = document.querySelector('#result');
+    const map = document.querySelector('#map'), resultBox = document.querySelector('#result'), explanationBox = document.querySelector('#explanation');
     let network, selectedPath = [];
     const esc = text => String(text).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
     async function request(url, options = {}) { const r = await fetch(url, options); const data = await r.json(); if (!r.ok) throw new Error(data.error || 'Request failed'); return data; }
@@ -54,9 +57,9 @@
       map.innerHTML = html;
     }
     async function load() { network = await request('/api/network'); populate(network); draw(); }
-    document.querySelector('#calculate').onclick = async () => { try { const payload = {start: document.querySelector('#start').value, destination: document.querySelector('#destination').value, algorithm: document.querySelector('#algorithm').value}; const data = await request('/api/route', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); selectedPath = data.path || []; resultBox.innerHTML = data.path ? `<strong>${esc(data.algorithm)} selected</strong><br><span class="route">${data.path.map(esc).join(' → ')}</span><br>Distance: ${data.distance} km &nbsp; | &nbsp; Estimated time: ${data.minutes} min &nbsp; | &nbsp; Utility cost: ${data.utility}` : 'No safe route is available.'; draw(); } catch (e) { resultBox.textContent = e.message; } };
-    document.querySelector('#update').onclick = async () => { network = await request('/api/update', {method:'POST'}); selectedPath=[]; resultBox.textContent='Live road update applied. Calculate a route again to re-plan.'; draw(); };
-    document.querySelector('#reset').onclick = async () => { network = await request('/api/reset', {method:'POST'}); selectedPath=[]; populate(network); resultBox.textContent='Simulation reset. All roads are open.'; draw(); };
+    document.querySelector('#calculate').onclick = async () => { try { const payload = {start: document.querySelector('#start').value, destination: document.querySelector('#destination').value, algorithm: document.querySelector('#algorithm').value}; const data = await request('/api/route', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); selectedPath = data.path || []; resultBox.innerHTML = data.path ? `<strong>${esc(data.algorithm)} selected</strong><br><span class="route">${data.path.map(esc).join(' → ')}</span><br>Distance: ${data.distance} km &nbsp; | &nbsp; Estimated time: ${data.minutes} min &nbsp; | &nbsp; Utility cost: ${data.utility}` : 'No safe route is available.'; explanationBox.innerHTML = `<h3>Why this route?</h3><ul>${data.explanation.map(item => `<li>${esc(item)}</li>`).join('')}</ul>`; draw(); } catch (e) { resultBox.textContent = e.message; } };
+    document.querySelector('#update').onclick = async () => { network = await request('/api/update', {method:'POST'}); selectedPath=[]; resultBox.textContent='Live road update applied. Calculate a route again to re-plan.'; explanationBox.innerHTML='<h3>Why this route?</h3><span>The road conditions changed. Recalculate to receive a new explanation.</span>'; draw(); };
+    document.querySelector('#reset').onclick = async () => { network = await request('/api/reset', {method:'POST'}); selectedPath=[]; populate(network); resultBox.textContent='Simulation reset. All roads are open.'; explanationBox.innerHTML='<h3>Why this route?</h3><span>Calculate a route to see the AI decision explanation.</span>'; draw(); };
     document.querySelector('#start').onchange = document.querySelector('#destination').onchange = draw;
     load();
   </script>
