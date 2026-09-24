@@ -14,7 +14,8 @@ from urllib.parse import urlparse
 
 from src.routing_engine import EmergencyRoadNetwork, apply_dynamic_event, build_demo_city
 
-PROJECT_DIR = Path(__file__).resolve().parent
+# This module lives in src/, while index.html stays at the project root.
+PROJECT_DIR = Path(__file__).resolve().parent.parent
 city: EmergencyRoadNetwork = build_demo_city()
 updated = False
 
