@@ -19,7 +19,7 @@ A Python microproject for demonstrating an ambulance as a **utility-based intell
 
 ## Run the front end
 
-The project now includes a basic clickable browser interface. Select the ambulance location, emergency destination, and algorithm, then click **Calculate Route**. Use **Simulate Live Road Update** to make one road heavy and another blocked; calculate again to show re-routing.
+The project now includes a basic clickable browser interface with a larger city network. Select the ambulance location, emergency destination, and algorithm, then click **Calculate Route**. Select any road from **Road unavailable in simulation** and click **Block Selected Road**; calculate again to demonstrate re-routing.
 
 The map is intentionally the main screen element. Each route result also includes a concise **Why this route?** explanation that reports the search approach, traffic conditions on the selected roads, utility cost, and any blocked roads avoided.
 
@@ -60,7 +60,7 @@ Traffic multipliers are low = 1.0, medium = 1.45, and high = 2.20. Blocked roads
 
 ## How to demonstrate Module 3
 
-`src/routing_engine.py` begins an ambulance journey from `Hospital` to `Accident Site`. It then changes the network: one road gets heavy traffic and another becomes blocked. The ambulance is assumed to be at `North Junction`, and A* recalculates a new safe route from there.
+`src/routing_engine.py` begins an ambulance journey from `Hospital` to `Accident Site`. It then changes the network: one road gets heavy traffic and another becomes blocked. The ambulance is assumed to be at `North Junction`, and A* recalculates a new safe route from there. In the browser interface, you choose the road or roads that cannot be used.
 
 You can edit the `apply_dynamic_event()` function or call `network.update_road(...)` to test other events.
 

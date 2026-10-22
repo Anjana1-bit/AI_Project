@@ -9,7 +9,12 @@ class handler(BaseHTTPRequestHandler):
         pass
 
     def do_POST(self):
-        body = json.dumps(network_data(updated=True)).encode()
+        length = int(self.headers.get("Content-Length", "0"))
+        try:
+            request = json.loads(self.rfile.read(length) or b"{}")
+            body = json.dumps(network_data(request.get("blocked_roads", []))).encode()
+        except json.JSONDecodeError:
+            body = json.dumps({"error": "Request must contain valid JSON."}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))

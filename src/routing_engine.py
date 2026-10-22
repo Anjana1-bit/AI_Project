@@ -197,23 +197,47 @@ class EmergencyRoadNetwork:
 
 
 def build_demo_city() -> EmergencyRoadNetwork:
+    """Create a larger simulated city: 25 locations and 40 alternative roads."""
     city = EmergencyRoadNetwork()
     for name, x, y in [
-        ("Hospital", 0, 2), ("North Junction", 2, 4), ("Central Square", 3, 2),
-        ("West Avenue", 1, 0), ("East Market", 5, 3), ("South Bridge", 4, 0),
-        ("Accident Site", 7, 2),
+        # Deliberately irregular coordinates make the road network resemble a city
+        # map rather than a uniform grid, while preserving the graph connections.
+        ("Hospital", 0.6, 4.2), ("North Gate", 2.0, 7.4), ("North Junction", 4.3, 6.8),
+        ("University", 6.5, 7.5), ("Airport Road", 8.8, 6.6), ("Fire Station", 1.0, 5.8),
+        ("West Avenue", 2.4, 4.4), ("Central Square", 4.5, 4.0), ("City Mall", 6.7, 4.5),
+        ("East Market", 8.4, 3.8), ("Ring Road", 10.4, 4.5), ("Lake View", 0.2, 2.3),
+        ("School Zone", 2.2, 2.0), ("Railway Station", 4.1, 2.4), ("Bus Terminal", 6.2, 1.8),
+        ("Tech Park", 8.3, 2.5), ("Industrial Area", 10.1, 1.6), ("West Bridge", 1.8, 0.3),
+        ("South Bridge", 4.4, 0.7), ("Stadium", 6.3, 0.2), ("Residential Area", 8.1, 0.6),
+        ("Accident Site", 10.6, 0.3), ("Trauma Center", 11.3, 6.2), ("Park Junction", 5.5, 5.7),
+        ("Old Town", 3.3, 5.4),
     ]:
         city.add_location(name, x, y)
-    city.add_road("Hospital", "North Junction", 2.2, "low", 0.1)
-    city.add_road("Hospital", "Central Square", 3.0, "medium", 0.2)
-    city.add_road("Hospital", "West Avenue", 2.4, "low", 0.1)
-    city.add_road("North Junction", "Central Square", 2.0, "low", 0.1)
-    city.add_road("North Junction", "East Market", 3.4, "medium", 0.3)
-    city.add_road("Central Square", "East Market", 2.5, "high", 0.3)
-    city.add_road("Central Square", "South Bridge", 2.6, "medium", 0.2)
-    city.add_road("West Avenue", "South Bridge", 3.2, "low", 0.2)
-    city.add_road("East Market", "Accident Site", 2.3, "low", 0.1)
-    city.add_road("South Bridge", "Accident Site", 3.5, "low", 0.2)
+    roads = [
+        ("Hospital", "Fire Station", 1.1, "low"), ("Hospital", "West Avenue", 1.7, "medium"),
+        ("Hospital", "Lake View", 2.0, "low"), ("Fire Station", "North Gate", 2.0, "low"),
+        ("Fire Station", "West Avenue", 1.2, "low"), ("North Gate", "North Junction", 2.0, "low"),
+        ("North Gate", "Old Town", 2.2, "medium"), ("North Junction", "University", 2.0, "low"),
+        ("North Junction", "Central Square", 3.0, "medium"), ("University", "Airport Road", 2.1, "medium"),
+        ("University", "Park Junction", 2.2, "low"), ("Airport Road", "Trauma Center", 2.0, "low"),
+        ("Airport Road", "East Market", 3.0, "high"), ("West Avenue", "Central Square", 2.0, "low"),
+        ("West Avenue", "School Zone", 2.1, "low"), ("West Avenue", "Old Town", 1.8, "medium"),
+        ("Old Town", "Park Junction", 2.0, "low"), ("Old Town", "Central Square", 1.5, "low"),
+        ("Park Junction", "City Mall", 1.8, "low"), ("Central Square", "City Mall", 2.0, "high"),
+        ("Central Square", "Railway Station", 2.0, "medium"), ("City Mall", "East Market", 2.0, "medium"),
+        ("City Mall", "Bus Terminal", 2.0, "low"), ("East Market", "Ring Road", 2.0, "low"),
+        ("East Market", "Tech Park", 2.1, "medium"), ("Ring Road", "Trauma Center", 2.3, "low"),
+        ("Ring Road", "Industrial Area", 2.2, "medium"), ("Lake View", "School Zone", 2.1, "low"),
+        ("School Zone", "Railway Station", 2.0, "medium"), ("School Zone", "West Bridge", 2.2, "low"),
+        ("Railway Station", "Bus Terminal", 2.0, "low"), ("Railway Station", "South Bridge", 2.1, "medium"),
+        ("Bus Terminal", "Tech Park", 2.0, "low"), ("Bus Terminal", "Stadium", 2.3, "low"),
+        ("Tech Park", "Industrial Area", 2.0, "medium"), ("Tech Park", "Residential Area", 2.2, "low"),
+        ("Industrial Area", "Accident Site", 2.0, "low"), ("West Bridge", "South Bridge", 2.0, "low"),
+        ("South Bridge", "Stadium", 2.0, "medium"), ("Stadium", "Residential Area", 2.0, "low"),
+        ("Residential Area", "Accident Site", 2.1, "low"),
+    ]
+    for start, end, distance, traffic in roads:
+        city.add_road(start, end, distance, traffic, 0.1 if traffic == "low" else 0.25)
     return city
 
 
@@ -227,8 +251,8 @@ def print_results(results: List[RouteResult]) -> None:
 
 def apply_dynamic_event(city: EmergencyRoadNetwork) -> None:
     """Simulate live traffic data received after the ambulance has started."""
-    city.update_road("North Junction", "East Market", traffic="high")
-    city.update_road("Central Square", "East Market", blocked=True)
+    city.update_road("City Mall", "East Market", traffic="high")
+    city.update_road("Bus Terminal", "Tech Park", blocked=True)
 
 
 def main() -> None:
@@ -245,7 +269,7 @@ def main() -> None:
     print_results(initial)
     city.visualize(initial[0].path, "Initial A* ambulance route", "initial_route.png")
 
-    print("\nLIVE UPDATE: North Junction -> East Market now has heavy traffic; Central Square -> East Market is blocked.")
+    print("\nLIVE UPDATE: City Mall -> East Market now has heavy traffic; Bus Terminal -> Tech Park is blocked.")
     apply_dynamic_event(city)
     current_location = "North Junction"
     reroute = city.run_algorithm("A* re-route", city.astar, current_location, destination)

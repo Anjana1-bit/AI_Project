@@ -9,13 +9,13 @@
     body { margin: 0; background: #f4f7fb; color: #172b4d; font-family: Arial, sans-serif; }
     header { background: #12355b; color: #fff; padding: 20px max(6vw, 28px); }
     h1 { margin: 0; font-size: clamp(1.35rem, 3vw, 2rem); } header p { margin: 6px 0 0; color: #d9f3f4; }
-    main { display: grid; grid-template-columns: 260px 1fr; gap: 20px; max-width: 1400px; margin: 0 auto; padding: 22px; }
+    main { display: grid; grid-template-columns: 285px 1fr; gap: 20px; max-width: 1500px; margin: 0 auto; padding: 22px; }
     .card { background: #fff; border: 1px solid #dbe4ee; border-radius: 12px; box-shadow: 0 3px 12px #102a4310; padding: 18px; }
     label { display: block; font-weight: bold; font-size: .9rem; margin: 16px 0 6px; } label:first-child { margin-top: 0; }
     select, button { width: 100%; border-radius: 7px; padding: 10px; font-size: .95rem; }
     select { border: 1px solid #b8c7d9; background: #fff; } button { border: 0; font-weight: bold; color: #fff; cursor: pointer; margin-top: 10px; }
     button:hover { filter: brightness(.93); } #calculate { background: #087e8b; margin-top: 22px; } #update { background: #d86c1a; } #reset { color: #12355b; background: #d9e2ec; }
-    .map-card { min-width: 0; } #map { width: 100%; height: 600px; display: block; background: #fbfdff; border-radius: 8px; }
+    .map-card { min-width: 0; } #map { width: 100%; height: 680px; display: block; background: #fbfdff; border-radius: 8px; }
     .result { margin-top: 16px; line-height: 1.55; } .result strong { color: #075e67; } .route { font-weight: bold; color: #0066cc; }
     .legend { color: #52606d; font-size: .85rem; margin: 8px 0 0; } .note { font-size: .86rem; color: #52606d; line-height: 1.45; }
     .explanation { margin-top: 14px; background: #f8fbff; border-left: 4px solid #087e8b; padding: 12px 15px; font-size: .92rem; line-height: 1.45; }
@@ -31,8 +31,10 @@
       <label for="destination">Emergency destination</label><select id="destination"></select>
       <label for="algorithm">Search algorithm</label>
       <select id="algorithm"><option value="astar">A* (Utility-Aware)</option><option value="bfs">BFS (Fewest Roads)</option><option value="greedy">Greedy Best-First Search</option></select>
-      <button id="calculate">Calculate Route</button><button id="update">Simulate Live Road Update</button><button id="reset">Reset Simulation</button>
-      <p class="note">The update makes North Junction → East Market heavy and blocks Central Square → East Market. Calculate again to demonstrate re-routing.</p>
+      <button id="calculate">Calculate Route</button>
+      <label for="road">Road unavailable in simulation</label><select id="road"></select>
+      <button id="update">Block Selected Road</button><button id="reset">Reset Simulation</button>
+      <p class="note">Choose any road to mark it unavailable. The agent will avoid it and find a new route. You may block more than one road.</p>
     </section>
     <section class="card map-card">
       <svg id="map" viewBox="0 0 820 470" aria-label="City road network"></svg>
@@ -43,23 +45,24 @@
   </main>
   <script>
     const map = document.querySelector('#map'), resultBox = document.querySelector('#result'), explanationBox = document.querySelector('#explanation');
-    let network, selectedPath = [];
+    let network, selectedPath = [], blockedRoads = [];
     const esc = text => String(text).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
     async function request(url, options = {}) { const r = await fetch(url, options); const data = await r.json(); if (!r.ok) throw new Error(data.error || 'Request failed'); return data; }
-    function populate(data) { const locations = data.nodes.map(n => n.name); for (const id of ['start','destination']) { const select = document.querySelector('#'+id); const before = select.value; select.innerHTML = locations.map(name => `<option>${esc(name)}</option>`).join(''); select.value = before || (id === 'start' ? 'Hospital' : 'Accident Site'); } }
-    function point(node) { const x = 56 + node.x / 7 * 710, y = 410 - node.y / 4 * 345; return [x,y]; }
+    function roadKey(road) { return [road.from, road.to].sort().join('|'); }
+    function populate(data) { const locations = data.nodes.map(n => n.name); for (const id of ['start','destination']) { const select = document.querySelector('#'+id); const before = select.value; select.innerHTML = locations.map(name => `<option>${esc(name)}</option>`).join(''); select.value = before || (id === 'start' ? 'Hospital' : 'Accident Site'); } const road = document.querySelector('#road'); const before = road.value; road.innerHTML = data.edges.map((edge, i) => `<option value="${i}">${esc(edge.from)} → ${esc(edge.to)}</option>`).join(''); road.value = before || '0'; }
+    function point(node) { const xs = network.nodes.map(n => n.x), ys = network.nodes.map(n => n.y); const x = 46 + (node.x-Math.min(...xs))/(Math.max(...xs)-Math.min(...xs))*728, y = 425 - (node.y-Math.min(...ys))/(Math.max(...ys)-Math.min(...ys))*380; return [x,y]; }
     function draw() {
       const byName = Object.fromEntries(network.nodes.map(n => [n.name,n]));
       const chosen = new Set(selectedPath.slice(0,-1).map((n,i) => [n, selectedPath[i+1]].sort().join('|')));
       let html = '';
-      network.edges.forEach(edge => { const [x1,y1] = point(byName[edge.from]), [x2,y2] = point(byName[edge.to]); const key = [edge.from,edge.to].sort().join('|'); const color = edge.blocked ? '#d62828' : chosen.has(key) ? '#0066cc' : '#8a98a8'; const width = chosen.has(key) ? 7 : 3; const dash = edge.blocked ? 'stroke-dasharray="9 6"' : ''; const mx=(x1+x2)/2, my=(y1+y2)/2; const label = `${edge.distance} km · ${edge.traffic}${edge.blocked ? ' · BLOCKED' : ''}`; html += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${width}" ${dash}/><rect x="${mx-52}" y="${my-10}" width="104" height="20" rx="4" fill="white"/><text x="${mx}" y="${my+4}" text-anchor="middle" font-size="10" fill="${edge.blocked ? '#b42318' : '#354657'}">${esc(label)}</text>`; });
-      network.nodes.forEach(node => { const [x,y] = point(node); const active = node.name === document.querySelector('#start').value || node.name === document.querySelector('#destination').value; html += `<circle cx="${x}" cy="${y}" r="30" fill="${active ? '#9be0c1' : '#ccecff'}" stroke="#1d4e89" stroke-width="2"/><text x="${x}" y="${y+4}" text-anchor="middle" font-size="11" font-weight="bold">${esc(node.name)}</text>`; });
+      network.edges.forEach(edge => { const [x1,y1] = point(byName[edge.from]), [x2,y2] = point(byName[edge.to]); const key = roadKey(edge); const color = edge.blocked ? '#d62828' : chosen.has(key) ? '#0066cc' : '#8a98a8'; const width = chosen.has(key) ? 6 : 2; const dash = edge.blocked ? 'stroke-dasharray="9 6"' : ''; html += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${width}" ${dash}/>`; });
+      network.nodes.forEach(node => { const [x,y] = point(node); const active = node.name === document.querySelector('#start').value || node.name === document.querySelector('#destination').value; html += `<circle cx="${x}" cy="${y}" r="22" fill="${active ? '#9be0c1' : '#ccecff'}" stroke="#1d4e89" stroke-width="2"/><text x="${x}" y="${y+3}" text-anchor="middle" font-size="8" font-weight="bold">${esc(node.name)}</text>`; });
       map.innerHTML = html;
     }
     async function load() { network = await request('/api/network'); populate(network); draw(); }
-    document.querySelector('#calculate').onclick = async () => { try { const payload = {start: document.querySelector('#start').value, destination: document.querySelector('#destination').value, algorithm: document.querySelector('#algorithm').value, updated: network.updated}; const data = await request('/api/route', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); selectedPath = data.path || []; resultBox.innerHTML = data.path ? `<strong>${esc(data.algorithm)} selected</strong><br><span class="route">${data.path.map(esc).join(' → ')}</span><br>Distance: ${data.distance} km &nbsp; | &nbsp; Estimated time: ${data.minutes} min &nbsp; | &nbsp; Utility cost: ${data.utility}` : 'No safe route is available.'; explanationBox.innerHTML = `<h3>Why this route?</h3><ul>${data.explanation.map(item => `<li>${esc(item)}</li>`).join('')}</ul>`; draw(); } catch (e) { resultBox.textContent = e.message; } };
-    document.querySelector('#update').onclick = async () => { network = await request('/api/update', {method:'POST'}); selectedPath=[]; resultBox.textContent='Live road update applied. Calculate a route again to re-plan.'; explanationBox.innerHTML='<h3>Why this route?</h3><span>The road conditions changed. Recalculate to receive a new explanation.</span>'; draw(); };
-    document.querySelector('#reset').onclick = async () => { network = await request('/api/reset', {method:'POST'}); selectedPath=[]; populate(network); resultBox.textContent='Simulation reset. All roads are open.'; explanationBox.innerHTML='<h3>Why this route?</h3><span>Calculate a route to see the AI decision explanation.</span>'; draw(); };
+    document.querySelector('#calculate').onclick = async () => { try { const payload = {start: document.querySelector('#start').value, destination: document.querySelector('#destination').value, algorithm: document.querySelector('#algorithm').value, blocked_roads: blockedRoads}; const data = await request('/api/route', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); selectedPath = data.path || []; resultBox.innerHTML = data.path ? `<strong>${esc(data.algorithm)} selected</strong><br><span class="route">${data.path.map(esc).join(' → ')}</span><br>Distance: ${data.distance} km &nbsp; | &nbsp; Estimated time: ${data.minutes} min &nbsp; | &nbsp; Utility cost: ${data.utility}` : 'No safe route is available.'; explanationBox.innerHTML = `<h3>Why this route?</h3><ul>${data.explanation.map(item => `<li>${esc(item)}</li>`).join('')}</ul>`; draw(); } catch (e) { resultBox.textContent = e.message; } };
+    document.querySelector('#update').onclick = async () => { const edge = network.edges[Number(document.querySelector('#road').value)]; if (!edge || edge.blocked) return; blockedRoads.push({from: edge.from, to: edge.to}); network = await request('/api/update', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({blocked_roads: blockedRoads})}); selectedPath=[]; populate(network); resultBox.textContent=`${edge.from} → ${edge.to} is now blocked. Calculate again to re-plan.`; explanationBox.innerHTML='<h3>Why this route?</h3><span>The chosen road is unavailable. Calculate a route to see how the AI adapts.</span>'; draw(); };
+    document.querySelector('#reset').onclick = async () => { blockedRoads=[]; network = await request('/api/reset', {method:'POST'}); selectedPath=[]; populate(network); resultBox.textContent='Simulation reset. All roads are open.'; explanationBox.innerHTML='<h3>Why this route?</h3><span>Calculate a route to see the AI decision explanation.</span>'; draw(); };
     document.querySelector('#start').onchange = document.querySelector('#destination').onchange = draw;
     load();
   </script>
